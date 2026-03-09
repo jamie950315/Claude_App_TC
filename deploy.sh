@@ -139,7 +139,10 @@ script = f""";(function(){{
   ]);
   var V=new Set(D.values());
   var seen=new WeakSet();
+  var CHAT='.ProseMirror,[data-testid^="conversation-turn"],[data-testid*="message"]';
+  function inChat(n){{var el=n.nodeType===3?n.parentElement:n;return el&&el.closest&&!!el.closest(CHAT);}}
   function trText(node){{
+    if(inChat(node))return;
     var t=node.nodeValue;
     if(!t||V.has(t))return;
     var v=D.get(t);
@@ -157,6 +160,7 @@ script = f""";(function(){{
     var tag=el.tagName;
     if(tag==='SCRIPT'||tag==='STYLE')return;
     if(el.isContentEditable)return;
+    if(inChat(el))return;
     if(seen.has(el))return;
     seen.add(el);
     var v;
@@ -171,7 +175,9 @@ script = f""";(function(){{
       var p=n.parentElement;
       if(!p)return 2;
       var pt=p.tagName;
-      return(pt==='SCRIPT'||pt==='STYLE'||p.isContentEditable)?2:1;
+      if(pt==='SCRIPT'||pt==='STYLE'||p.isContentEditable)return 2;
+      if(p.closest&&p.closest(CHAT))return 2;
+      return 1;
     }}}});
     var n;while((n=w.nextNode()))trText(n);
   }}
