@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Local Claude.app copy (too large for git)
+Claude.app/
+
+# Large reference files (not needed for deployment)
+index.js
+
+# Node
+node_modules/
