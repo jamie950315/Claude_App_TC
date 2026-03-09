@@ -6,12 +6,11 @@ This project translates `/Applications/Claude.app` (Electron-based desktop app) 
 
 | Layer | Source | Method |
 |-------|--------|--------|
-| 1. Electron native UI (menu bar, dialogs) | `ja-JP.json` locale file | Replace JSON locale file in Resources/ |
-| 2. Electron native dialogs (error, permission) | `defaultMessage` in `index.js` | Source-level string replacement in asar |
-| 3. Web UI (claude.ai remote content) | MutationObserver JS injection | Inject script into `mainView.js` inside `app.asar` |
-| 4. Quick Entry window | `zh_TW.lproj/Localizable.strings` | macOS native localization (already handled by app) |
+| 1. Electron native dialogs (error, permission) | `defaultMessage` in `index.js` | Source-level string replacement in asar |
+| 2. Web UI (claude.ai remote content) | MutationObserver JS injection | Inject script into `mainView.js` inside `app.asar` |
+| 3. Quick Entry window | `zh_TW.lproj/Localizable.strings` | macOS native localization (already handled by app) |
 
-Layer 2 uses **source-level replacement** (zero runtime overhead). Layer 3 (Web UI) is where 94% of visible text lives and uses a runtime MutationObserver.
+Layer 1 uses **source-level replacement** (zero runtime overhead). Layer 2 (Web UI) is where 94% of visible text lives and uses a runtime MutationObserver.
 
 ## Quick Start
 
@@ -40,7 +39,6 @@ TranslateThisApp/
 ├── CLAUDE.md                        # This file (instructions for AI)
 ├── data/
 │   ├── translations.json            # Master dictionary (5,232 EN→zh-TW pairs)
-│   ├── ja-JP.json                   # Electron native UI locale (menu bar, 236 entries)
 │   └── entitlements.plist           # macOS entitlements for codesigning
 ├── backup_v1/                       # Backup of v1 scripts before hybrid optimization
 ├── Claude.app/                      # (optional) Local copy of Claude.app for testing
@@ -87,10 +85,6 @@ Electron validates `app.asar` integrity on launch. After modifying the asar:
 
 If the hash is wrong, the app crashes on launch. If entitlements are missing, the Cowork feature breaks with "Invalid installation" error.
 
-### Locale Hijacking (Menu Bar)
-
-Claude Desktop uses `@formatjs/intl` for Electron native UI. It loads locale files matching `/[a-z]{2}-[A-Z]{2}\.json/` from `Contents/Resources/`. Since there's no `zh-TW` locale built in, we hijack `ja-JP.json` (Japanese) and replace its content with Chinese translations. The user must select **Japanese** in Claude Settings → Language to activate menu translations.
-
 ## When Claude Desktop Updates
 
 When the app updates, the translation will be wiped because the app.asar is replaced. To restore:
@@ -108,7 +102,6 @@ The script automatically:
 - Generates and injects MutationObserver script into mainView.js (Web UI)
 - Repacks asar
 - Updates the integrity hash
-- Copies ja-JP.json locale file
 - Re-signs with proper entitlements
 - Relaunches Claude (skipped if using local app copy)
 
@@ -202,9 +195,6 @@ When translating, follow these conventions:
 - React may split text across multiple DOM nodes. Add each fragment separately.
 - Dynamic strings with runtime values (e.g., "Resets in 2 hr 32 min") cannot be matched by static dictionary. These require regex-based translation (not yet implemented).
 - ICU plural/select format strings (e.g., `{count, plural, one {# item} other {# items}}`) are handled by react-intl at runtime and cannot be intercepted.
-
-### Menu bar still in English
-- Go to Claude Settings → Language → select **Japanese** (日本語). This activates our hijacked ja-JP.json.
 
 ### `asar` command not found
 ```bash

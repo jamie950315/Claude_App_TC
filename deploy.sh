@@ -38,7 +38,6 @@ WORK_DIR="$(mktemp -d)"
 
 # Files
 TRANSLATIONS="$DATA_DIR/translations.json"
-LOCALE_FILE="$DATA_DIR/ja-JP.json"
 ENTITLEMENTS="$DATA_DIR/entitlements.plist"
 
 # Colors
@@ -81,11 +80,6 @@ preflight() {
 
     if [ ! -f "$TRANSLATIONS" ]; then
         err "Translation file not found: $TRANSLATIONS"
-        ok=false
-    fi
-
-    if [ ! -f "$LOCALE_FILE" ]; then
-        err "Locale file not found: $LOCALE_FILE"
         ok=false
     fi
 
@@ -245,17 +239,6 @@ do_check() {
         warn "Electron dialogs: NOT TRANSLATED"
     fi
 
-    # Check locale file
-    if [ -f "$RESOURCES/ja-JP.json" ]; then
-        if grep -q "實際大小" "$RESOURCES/ja-JP.json" 2>/dev/null; then
-            log "Electron native UI: TRANSLATED (zh-TW via ja-JP.json)"
-        else
-            warn "Electron native UI: ORIGINAL JAPANESE"
-        fi
-    else
-        warn "Electron native UI: ja-JP.json NOT FOUND"
-    fi
-
     # Check entitlements
     if codesign -d --entitlements :- "$APP_PATH/Contents/MacOS/Claude" 2>&1 | grep -q "virtualization" 2>/dev/null; then
         log "Virtualization entitlement: PRESENT (Cowork should work)"
@@ -290,12 +273,6 @@ do_undo() {
     cp "$RESOURCES/app.asar.bak" "$RESOURCES/app.asar"
     log "Restored app.asar from backup"
 
-    # Restore locale
-    if [ -f "$RESOURCES/ja-JP.json.bak" ]; then
-        cp "$RESOURCES/ja-JP.json.bak" "$RESOURCES/ja-JP.json"
-        log "Restored ja-JP.json from backup"
-    fi
-
     # Recompute hash and re-sign
     local hash
     hash=$(compute_header_hash "$ASAR_PATH")
@@ -329,10 +306,6 @@ do_deploy() {
         cp "$ASAR_PATH" "$RESOURCES/app.asar.bak"
     else
         info "Backup already exists: app.asar.bak"
-    fi
-
-    if [ ! -f "$RESOURCES/ja-JP.json.bak" ] && [ -f "$RESOURCES/ja-JP.json" ]; then
-        cp "$RESOURCES/ja-JP.json" "$RESOURCES/ja-JP.json.bak"
     fi
 
     # Step 3: Extract asar
@@ -428,7 +401,6 @@ print(f'mainView.js: {len(content):,} bytes')
     # Step 9: Deploy
     info "Deploying..."
     cp "$new_asar" "$ASAR_PATH"
-    cp "$LOCALE_FILE" "$RESOURCES/ja-JP.json"
     /usr/libexec/PlistBuddy -c "Set :ElectronAsarIntegrity:Resources/app.asar:hash $hash" "$PLIST_PATH"
 
     # Step 10: Re-sign with entitlements
@@ -446,7 +418,6 @@ print(f'mainView.js: {len(content):,} bytes')
     echo
     log "Deploy complete! App: $APP_PATH"
     log "Translation entries: $(python3 -c "import json; print(len(json.load(open('$TRANSLATIONS'))))")"
-    log "Remember: Select 'Japanese' in Claude Settings > Language to activate menu translation"
 }
 
 # ============================================================================
