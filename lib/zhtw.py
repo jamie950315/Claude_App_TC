@@ -375,7 +375,61 @@ def collect_sources(app_path):
                 continue
             if v.strip():
                 found[v] = 1
+    for v in collect_cache_sources():
+        found[v] = 1
     return sorted(found)
+
+
+CACHE_DIR = os.path.expanduser("~/Library/Application Support/Claude/Cache/Cache_Data")
+CACHE_EOF = bytes.fromhex("d8410d97456ffaf4")  # Chromium simple-cache stream terminator
+DM_ANY_RE = re.compile(r'defaultMessage:(?:"((?:[^"\\]|\\.)*)"|\'((?:[^\'\\]|\\.)*)\'|`([^`$\\]*)`)')
+
+
+def collect_cache_sources():
+    """defaultMessages from claude.ai bundles in Claude's HTTP cache.
+
+    The remote web UI is often newer than the catalog shipped in ion-dist, so the
+    cached bundles carry strings the app copy does not have yet.
+    """
+    if not os.path.isdir(CACHE_DIR):
+        return []
+    try:
+        import zstandard
+    except ImportError:
+        print("note: pip install zstandard to include strings from Claude's web cache", file=sys.stderr)
+        return []
+    found = {}
+    for name in os.listdir(CACHE_DIR):
+        if not name.endswith("_0"):
+            continue
+        with open(os.path.join(CACHE_DIR, name), "rb") as f:
+            blob = f.read()
+        if len(blob) < 24:
+            continue
+        key_len = int.from_bytes(blob[12:16], "little")
+        key = blob[24:24 + key_len].decode("latin1")
+        if "assets-proxy.anthropic.com" not in key or not re.search(r"\.js(\?|$)", key):
+            continue
+        body = blob[24 + key_len:]
+        end = body.find(CACHE_EOF)
+        if end > 0:
+            body = body[:end]
+        try:
+            text = zstandard.ZstdDecompressor().decompressobj().decompress(body).decode("utf-8")
+        except Exception:
+            try:
+                text = body.decode("utf-8")
+            except UnicodeDecodeError:
+                continue
+        for dq, sq, bt in DM_ANY_RE.findall(text):
+            raw = dq or sq or bt
+            try:
+                v = js_unescape(raw) if (dq or sq) else raw
+            except ValueError:
+                continue
+            if v.strip():
+                found[v] = 1
+    return list(found)
 
 
 def cmd_missing(translations_path, app_path, out_dir):

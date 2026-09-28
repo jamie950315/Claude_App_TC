@@ -63,6 +63,8 @@ CLAUDE_APP=/path/to/Claude.app ./deploy.sh   # 指定要處理的 app 副本（�
 
 ### 補上新版本的新字串
 
+`missing` 也會讀取 Claude 快取中的最新 claude.ai 程式碼（需 `pip install zstandard`），可抓到比 app 內附目錄更新的字串。
+
 ```bash
 python3 lib/zhtw.py missing data/translations.json /Applications/Claude.app .work/in
 # 將 .work/in/bNNN.json 翻譯為 .work/out/bNNN.json（key 相同）

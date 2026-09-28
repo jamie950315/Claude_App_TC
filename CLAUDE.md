@@ -77,8 +77,11 @@ python3 lib/zhtw.py merge data/translations.json .work/in .work/out
 ./deploy.sh
 ```
 
-`missing` reads the web catalog, the desktop catalog (prefers `en-US.json.bak`) and main-process `defaultMessage`s
-(prefers `app.asar.bak`), so it works on an already translated app.
+`missing` reads the web catalog, the desktop catalog (prefers `en-US.json.bak`), main-process `defaultMessage`s
+(prefers `app.asar.bak`), so it works on an already translated app, and the `defaultMessage`s of claude.ai bundles in
+Claude's HTTP cache (`~/Library/Application Support/Claude/Cache/Cache_Data`, zstd, needs `pip install zstandard`):
+the remote web UI is usually newer than the ion-dist catalog. Open the new pages in Claude first so they get cached.
+Text that comes from server APIs (e.g. notification setting names) is in none of these and must be added by hand.
 
 ## Translation conventions
 

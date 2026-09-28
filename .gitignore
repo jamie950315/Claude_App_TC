@@ -13,6 +13,7 @@ node_modules/
 # Translation work area
 .work/
 .work2/
+.work3/
 
 # Python
 __pycache__/
