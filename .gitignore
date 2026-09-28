@@ -9,3 +9,10 @@ index.js
 
 # Node
 node_modules/
+
+# Translation work area
+.work/
+.work2/
+
+# Python
+__pycache__/

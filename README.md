@@ -1,25 +1,34 @@
 # Claude Desktop 繁體中文翻譯套件
 
-將 macOS 版 Claude Desktop 應用程式翻譯為繁體中文（台灣）。
+將 macOS 版 Claude Desktop 應用程式翻譯為繁體中文（台灣）。已於 Claude Desktop 2.9939.x 驗證。
 
 ## 翻譯涵蓋範圍
 
+同一份詞典 `data/translations.json`（英文訊息 → 繁中訊息，ICU MessageFormat 格式）套用到三個層級：
+
 | 層級 | 來源 | 翻譯方式 |
 |------|------|----------|
-| Electron 原生對話框（錯誤提示、權限請求） | `index.js` 中的 `defaultMessage` | 原始碼層級字串替換（零執行時開銷） |
-| Web UI（claude.ai 遠端內容） | `mainView.js` 注入 | MutationObserver 即時 DOM 翻譯 |
-| Quick Entry 視窗 | `zh_TW.lproj/Localizable.strings` | macOS 原生本地化（應用程式已內建） |
+| 主程序字串（原生對話框、選單、企業政策說明） | `app.asar` 內 `.vite/build/*.js` 的 `defaultMessage` | 原始碼層級替換（零執行時開銷） |
+| 桌面訊息目錄（視窗外框、原生提示） | `Contents/Resources/en-US.json` | 以翻譯後的目錄取代（保留備份） |
+| Web UI（claude.ai 遠端內容，佔可見文字約 95%） | DOM | 注入 `mainView.js` 的 MutationObserver 即時翻譯 |
 
-Web UI 佔可見文字的 94%，使用 5,232 組英中對照詞典進行即時翻譯。
+Web UI 翻譯支援：
+
+- 一般字串（完全比對）
+- 含變數的字串，例如 `Resets in {time}`（轉為正規表達式樣板）
+- 複數與選擇字串，例如 `{count, plural, one {# file} other {# files}}`（依分支展開）
+- 含連結或粗體的字串，例如 `Read our <link>privacy policy</link>`（依標籤拆成片段）
+- `placeholder`、`title`、`aria-label` 屬性
+
+對話內容、Claude 回應、輸入框、程式碼區塊與終端機不會被翻譯。
 
 ## 快速開始
 
 ### 前置需求
 
 - macOS + Claude Desktop（`/Applications/Claude.app`）
-- [Node.js](https://nodejs.org/)
+- [Node.js](https://nodejs.org/) 與 asar CLI：`npm install -g @electron/asar`
 - Python 3
-- asar CLI：`npm install -g @electron/asar`
 
 ### 部署翻譯
 
@@ -29,82 +38,74 @@ cd Claude_App_TC
 ./deploy.sh
 ```
 
+腳本會關閉 Claude、套用翻譯、更新完整性雜湊、重新簽署，再重新開啟 Claude。
+
+> 若在 Claude Desktop 內的 Claude Code 工作階段執行，關閉 Claude 會中斷該工作階段。請改用終端機執行，或使用 `./deploy.sh --no-launch` 後自行重新啟動 Claude。
+
 ### 其他指令
 
 ```bash
-./deploy.sh --check   # 檢查目前翻譯狀態
-./deploy.sh --undo    # 還原為未翻譯的原版應用程式
+./deploy.sh --check       # 檢查目前翻譯狀態
+./deploy.sh --undo        # 還原為未翻譯的原版應用程式
+./deploy.sh --no-launch   # 部署但不關閉／重新開啟 Claude
+CLAUDE_APP=/path/to/Claude.app ./deploy.sh   # 指定要處理的 app 副本（測試用）
 ```
-
-## 運作原理
-
-部署腳本使用兩層互補的翻譯策略：
-
-### 層級 A：原始碼層級替換
-
-針對 `app.asar` 內的 `index.js`，以正規表達式將 `defaultMessage:"English"` 直接替換為 `defaultMessage:"中文"`。涵蓋約 282 組字串（錯誤對話框、權限提示、更新通知、右鍵選單等），**零執行時開銷**。
-
-### 層級 B：MutationObserver 注入
-
-將翻譯腳本注入 `mainView.js`，在 Web UI 載入時即時翻譯 DOM 中的文字節點：
-
-- 使用 `Map` 字典，O(1) 查詢效能
-- `TreeWalker` 遍歷所有文字節點
-- 翻譯元素屬性：`placeholder`、`title`、`ariaLabel`
-- `MutationObserver` 搭配 `characterData: true` 監聽新增節點與文字變更
-- `requestAnimationFrame` 批次處理，避免效能衝擊
-
-### ASAR 完整性處理
-
-Electron 啟動時會驗證 `app.asar` 的完整性。腳本會自動：
-
-1. 計算修改後 asar 的 **header SHA256 雜湊**（非整個檔案）
-2. 更新 `Info.plist` 中的 `ElectronAsarIntegrity` 雜湊值
-3. 使用正確的 entitlements 重新簽署應用程式
 
 ## Claude Desktop 更新後
 
-應用程式更新會覆蓋 `app.asar`，翻譯會被清除。只需重新執行：
+應用程式更新會覆蓋 `app.asar` 與 `en-US.json`，翻譯會被清除。重新執行：
 
 ```bash
 ./deploy.sh
 ```
 
-腳本會自動備份新版 asar（若尚無備份）、注入翻譯、重新簽署。
+偵測到未翻譯的原版檔案時，腳本會自動更新備份（`app.asar.bak`、`en-US.json.bak`），所以 `--undo` 永遠還原到目前版本。
 
-## 新增翻譯詞條
+### 補上新版本的新字串
 
-編輯 `data/translations.json`，加入新的英中對照：
+```bash
+python3 lib/zhtw.py missing data/translations.json /Applications/Claude.app .work/in
+# 將 .work/in/bNNN.json 翻譯為 .work/out/bNNN.json（key 相同）
+python3 lib/zhtw.py merge data/translations.json .work/in .work/out
+./deploy.sh
+```
+
+## 新增或修正翻譯
+
+編輯 `data/translations.json`：
 
 ```json
 {
-  "English text": "中文翻譯"
+  "English text": "中文翻譯",
+  "Resets in {time}": "{time}後重設"
 }
 ```
 
-注意事項：
-- Key 必須與 DOM 中的文字**完全一致**（區分大小寫、含標點符號）
-- React 可能將句子拆分至多個 DOM 節點，需分別新增每個片段
+- Key 必須與英文原文**完全一致**（區分大小寫、含標點）；有變數時使用 ICU 原始格式
+- 翻譯需保留相同的變數名稱、複數／選擇分支 key 與 `<tag>` 標籤
 - 修改後執行 `./deploy.sh` 即可套用
 
 ## 專案結構
 
 ```
-├── deploy.sh              # 主要部署腳本
-├── CLAUDE.md              # AI 助手參考文件
-├── README.md              # 本文件
+├── deploy.sh              # 部署／檢查／還原
+├── lib/
+│   ├── zhtw.py            # 建置步驟（注入、原始碼替換、目錄翻譯、擷取新字串、合併）
+│   ├── icu.py             # ICU MessageFormat 解析器
+│   └── inject.js          # Web UI 翻譯執行時
 └── data/
-    ├── translations.json  # 主翻譯詞典（5,232 組）
-    └── entitlements.plist # macOS 簽署用 entitlements
+    ├── translations.json  # 主翻譯詞典（約 33,600 組，涵蓋 2.9939.2）
+    └── entitlements.plist # 重新簽署用 entitlements
 ```
 
 ## 疑難排解
 
 | 問題 | 解決方式 |
 |------|----------|
-| 應用程式啟動後閃退 | ASAR header 雜湊不正確，重新執行 `./deploy.sh` |
+| 應用程式啟動後閃退 | ASAR header 雜湊不正確，執行 `./deploy.sh --check` 確認後重新部署 |
 | Cowork 顯示「Invalid installation」 | Entitlements 遺失，確認 `data/entitlements.plist` 存在後重新部署 |
-| 部分文字仍為英文 | 該字串可能不在詞典中，找到確切文字後新增至 `translations.json` |
+| 部分文字仍為英文 | 該字串可能不在詞典中，或由伺服器動態產生；找到確切文字後新增至 `translations.json` |
+| 對話內容被翻譯 | 在 `lib/inject.js` 的 `SKIP` 選擇器加入該區塊 |
 | `asar` 指令找不到 | `npm install -g @electron/asar` |
 
 ## 授權條款
