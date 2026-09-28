@@ -61,7 +61,7 @@ Translated: text nodes and `placeholder` / `title` / `aria-label` / `aria-descri
 Skipped (user content): the `SKIP` selector — chat messages, Claude responses, markdown, editors, `pre`/`code`, xterm.
 If user content gets translated, extend `SKIP`.
 Reasoning effort levels (Low/Medium/High/Extra/Extra high) stay English when a nearby small container (menu, or up to
-3 ancestors, ≤60 text nodes) also shows "Max", "Effort"/投入程度 or a model name (`effortLevel`). The pickers are
+5 ancestors, ≤60 text nodes; Code mode wraps the label in animation spans) also shows "Max", "Effort"/投入程度 or a model name (`effortLevel`). The pickers are
 server-driven, so they are recognised by content, not a selector.
 
 The asar integrity hash (`ElectronAsarIntegrity` in Info.plist) is the SHA256 of the asar **header** only; the
