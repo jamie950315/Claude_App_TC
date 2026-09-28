@@ -42,8 +42,6 @@ lib/icu.py              # Minimal ICU MessageFormat parser/expander
 lib/inject.js           # Web UI runtime (MutationObserver); data is embedded at deploy time
 data/translations.json  # Master dictionary (EN → zh-TW, ~34k messages; covers Claude 2.9939.2 + cached claude.ai bundles)
 data/entitlements.plist # Entitlements for ad-hoc re-signing (virtualization is required by Cowork)
-backup_v1/              # Old v1 scripts (reference only)
-claude_intl_messages.json, claude_ui_strings_categorized.txt  # Old reference extracts (v1 era)
 .work/                  # (gitignored) translation batches while updating
 ```
 
