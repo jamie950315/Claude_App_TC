@@ -60,6 +60,8 @@ Templates are bucketed by 2-char literal prefix/suffix so a text node is tested 
 Translated: text nodes and `placeholder` / `title` / `aria-label` / `aria-description`.
 Skipped (user content): the `SKIP` selector — chat messages, Claude responses, markdown, editors, `pre`/`code`, xterm.
 If user content gets translated, extend `SKIP`.
+Reasoning effort levels (Low/Medium/High/Extra/Extra high) stay English inside a small menu that also has a
+"Max" item (`effortLevel`); the menu is server-driven, so it is recognised by content, not a selector.
 
 The asar integrity hash (`ElectronAsarIntegrity` in Info.plist) is the SHA256 of the asar **header** only; the
 script updates it and re-signs ad hoc with `data/entitlements.plist`. Wrong hash → crash on launch; missing
