@@ -256,11 +256,14 @@ do_deploy() {
     info "Deploying..."
     local hash
     hash=$(compute_header_hash "$new_asar")
-    cp "$new_asar" "$ASAR_PATH"
+    # Copy next to the target, then rename: a running Claude keeps reading the old file
+    cp "$new_asar" "$ASAR_PATH.new" && mv -f "$ASAR_PATH.new" "$ASAR_PATH"
     if [ -d "$new_asar.unpacked" ]; then
         rsync -a "$new_asar.unpacked/" "$RESOURCES/app.asar.unpacked/"
     fi
-    [ -f "$new_catalog" ] && cp "$new_catalog" "$CATALOG"
+    if [ -f "$new_catalog" ]; then
+        cp "$new_catalog" "$CATALOG.new" && mv -f "$CATALOG.new" "$CATALOG"
+    fi
     /usr/libexec/PlistBuddy -c "Set :ElectronAsarIntegrity:Resources/app.asar:hash $hash" "$PLIST_PATH"
     info "Integrity hash: $hash"
 

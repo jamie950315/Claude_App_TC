@@ -57,10 +57,18 @@ def build_template(en_toks, zh_toks):
     literal = "".join(t[1] for t in en_toks if t[0] == "text")
     if letters(literal) < 2:
         return None
-    # A single literal word around free-text captures ("About {x}", "{a}, {b} and {c}")
-    # would also rewrite unrelated text such as user-named chats; numeric captures are safe.
-    if any(t[0] == "arg" for t in en_toks) and len(re.findall(r"[A-Za-z]+", literal)) <= 1:
-        return None
+    # With little literal text, free-text captures match unrelated sentences
+    # ("{m}m {s}s" would rewrite "Emails from … sessions", "About {x}" user-named chats),
+    # so such templates only capture numbers.
+    words = re.findall(r"[A-Za-z]+", literal)
+    long_words = sum(len(w) >= 3 for w in words)
+    strong = long_words >= 2 or (len(words) >= 2 and any(len(w) >= 5 for w in words))
+    # A leading capture ("{x} this week") or several captures ("{a} of Claude {b}") make the
+    # match depend on a short suffix, so require more literal words before allowing free text.
+    free_args = len({t[1] for t in en_toks if t[0] == "arg"})
+    if en_toks[0][0] == "arg" or free_args >= 2:
+        strong = strong and long_words >= 3
+    free = r"(.+?)" if strong else r"(\d[\d,.]*)"
     groups = {}
     pattern = []
     for t in en_toks:
@@ -72,7 +80,7 @@ def build_template(en_toks, zh_toks):
                 pattern.append("\\%d" % groups[name])
             else:
                 groups[name] = len(groups) + 1
-                pattern.append(r"(\d[\d,.]*)" if t[0] == "num" else "(.+?)")
+                pattern.append(r"(\d[\d,.]*)" if t[0] == "num" else free)
     repl = []
     for t in zh_toks:
         if t[0] == "text":
