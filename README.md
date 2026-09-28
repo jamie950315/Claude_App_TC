@@ -96,7 +96,7 @@ python3 lib/zhtw.py merge data/translations.json .work/in .work/out
 │   ├── icu.py             # ICU MessageFormat 解析器
 │   └── inject.js          # Web UI 翻譯執行時
 └── data/
-    ├── translations.json  # 主翻譯詞典（約 33,600 組，涵蓋 2.9939.2）
+    ├── translations.json  # 主翻譯詞典（約 34,000 組，涵蓋 2.9939.2）
     └── entitlements.plist # 重新簽署用 entitlements
 ```
 
