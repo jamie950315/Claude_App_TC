@@ -52,6 +52,8 @@ claude_intl_messages.json, claude_ui_strings_categorized.txt  # Old reference ex
 `zhtw.py inject` compiles the dictionary into:
 - **exact** strings (`Map` lookup; also tried on the trimmed text),
 - **templates**: messages with `{args}` become anchored regexes (`{name}` → `(.+?)`, plural `#` → number);
+  templates with little literal text (fewer than two 3+-letter words, or a leading/multiple capture with fewer
+  than three) capture numbers only, so e.g. `{m}m {s}s` cannot rewrite ordinary sentences (`build_template`);
   plural/select messages are expanded per branch (English branch → same Chinese key, else `other`),
 - **rich-text fragments**: `<link>…</link>` messages are split at tags, because React renders each part as a
   separate text node; fragments are paired by position (or by tag name if the order differs).

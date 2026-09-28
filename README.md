@@ -15,12 +15,14 @@
 Web UI 翻譯支援：
 
 - 一般字串（完全比對）
-- 含變數的字串，例如 `Resets in {time}`（轉為正規表達式樣板）
+- 含變數的字串，例如 `Resets in {time}`（轉為正規表達式樣板；字面文字太少的樣板只比對數字，避免誤套到一般英文句子）
 - 複數與選擇字串，例如 `{count, plural, one {# file} other {# files}}`（依分支展開）
 - 含連結或粗體的字串，例如 `Read our <link>privacy policy</link>`（依標籤拆成片段）
 - `placeholder`、`title`、`aria-label` 屬性
 
 對話內容、Claude 回應、輸入框、程式碼區塊與終端機不會被翻譯。
+
+模型的推理強度等級（Low、Medium、High、Extra、Max）刻意保留英文，包括選單、模型名稱旁的標籤與 Claude Code 的強度滑桿。
 
 ## 快速開始
 
