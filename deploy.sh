@@ -9,6 +9,7 @@ set -euo pipefail
 #   ./deploy.sh              Deploy translation to Claude Desktop
 #   ./deploy.sh --check      Check current translation status without modifying
 #   ./deploy.sh --undo       Restore original (untranslated) app from backup
+#   ./deploy.sh --update     Install the latest official release, then deploy
 #   ./deploy.sh --no-launch  Deploy without quitting/relaunching Claude
 #
 # Prerequisites:
@@ -110,16 +111,15 @@ launch_claude() {
     fi
 }
 
-# Designated requirement of the official Anthropic build. Squirrel only accepts an
-# update that satisfies the running app's designated requirement; an ad-hoc
-# signature's default (cdhash) requirement rejects every official update.
-OFFICIAL_DR='designated => identifier "com.anthropic.claudefordesktop" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = Q6L2SF6YDW'
+# Designated requirement of official Anthropic builds; --update verifies downloads against it.
+# The translated app itself must keep its default ad-hoc requirement: declaring this one
+# makes macOS forget keychain and privacy (TCC) grants on every launch.
+OFFICIAL_REQ='identifier "com.anthropic.claudefordesktop" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = Q6L2SF6YDW'
+UPDATE_FEED="https://api.anthropic.com/api/desktop/darwin"
 
 resign() {
     info "Re-signing with entitlements..."
     codesign --force --deep --sign - --entitlements "$ENTITLEMENTS" "$APP_PATH" 2>/dev/null
-    # Re-sign the outer bundle only, so nested helpers keep their own requirements
-    codesign --force --sign - --entitlements "$ENTITLEMENTS" -r="$OFFICIAL_DR" "$APP_PATH"
 }
 
 # ============================================================================
@@ -166,12 +166,6 @@ do_check() {
         warn "Virtualization entitlement: MISSING (Cowork may show 'corrupted' error)"
     fi
 
-    if codesign -d -r- "$APP_PATH" 2>&1 | grep -q "subject.OU\] = Q6L2SF6YDW"; then
-        log "Designated requirement: OFFICIAL (auto-update accepted)"
-    else
-        warn "Designated requirement: NOT OFFICIAL (auto-update will fail signature validation)"
-    fi
-
     info "Translation dictionary: $(python3 -c "import json; print(len(json.load(open('$TRANSLATIONS'))))") entries"
     python3 "$ZHTW" stats "$TRANSLATIONS"
 }
@@ -200,6 +194,41 @@ do_undo() {
     resign
     log "Claude restored"
     launch_claude
+}
+
+# ============================================================================
+# --update: Install the latest official release, then deploy
+# ============================================================================
+# Claude's built-in updater cannot update a translated app: Squirrel rejects official
+# builds that do not satisfy the ad-hoc designated requirement.
+do_update() {
+    local current arch release version url sha
+    current=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$PLIST_PATH")
+    arch=$([ "$(uname -m)" = arm64 ] && echo arm64 || echo x64)
+    info "Checking for updates (installed: $current)..."
+    release=$(curl -fsS "$UPDATE_FEED/$arch/squirrel/update?device_id=$(uuidgen)&version=$current&os_version=$(sw_vers -productVersion)" \
+        | python3 -c 'import json,sys; u=json.load(sys.stdin)["releases"][0]["updateTo"]; print(u["version"], u["url"], u["sha256"])')
+    read -r version url sha <<< "$release"
+    if [ "$version" = "$current" ]; then
+        log "Already up to date ($current)"
+        return
+    fi
+
+    info "Downloading Claude $version..."
+    curl -fsSL -o "$WORK_DIR/update.zip" "$url"
+    [ "$(shasum -a 256 "$WORK_DIR/update.zip" | cut -d' ' -f1)" = "$sha" ] || { err "SHA256 mismatch"; exit 1; }
+    ditto -x -k "$WORK_DIR/update.zip" "$WORK_DIR/update"
+    local new_app="$WORK_DIR/update/Claude.app"
+    codesign --verify --deep --strict -R="$OFFICIAL_REQ" "$new_app" || { err "Update is not signed by Anthropic"; exit 1; }
+    log "Verified Claude $version (SHA256 and Anthropic signature)"
+
+    quit_claude
+    [ "$LAUNCH" = true ] || ! is_installed_app || warn "Claude is not restarted (--no-launch); quit it before using the new version"
+    mv "$APP_PATH" "$WORK_DIR/Claude.app.old"
+    mv "$new_app" "$APP_PATH"
+    log "Installed Claude $version"
+    echo
+    do_deploy
 }
 
 # ============================================================================
@@ -303,13 +332,15 @@ for arg in "$@"; do
     case "$arg" in
         --check) ACTION=check ;;
         --undo) ACTION=undo ;;
+        --update) ACTION=update ;;
         --no-launch) LAUNCH=false ;;
         --help|-h)
-            echo "Usage: $0 [--check|--undo] [--no-launch]"
+            echo "Usage: $0 [--check|--undo|--update] [--no-launch]"
             echo
             echo "  (no args)    Deploy zh-TW translation to Claude Desktop"
             echo "  --check      Check current translation status"
             echo "  --undo       Restore original untranslated app from backup"
+            echo "  --update     Install the latest official release, then deploy"
             echo "  --no-launch  Do not quit or relaunch Claude (restart it yourself)"
             echo
             echo "  CLAUDE_APP=/path/to/Claude.app $0   Target a specific app copy"
@@ -317,7 +348,7 @@ for arg in "$@"; do
             ;;
         *)
             err "Unknown option: $arg"
-            echo "Usage: $0 [--check|--undo] [--no-launch]"
+            echo "Usage: $0 [--check|--undo|--update] [--no-launch]"
             exit 1
             ;;
     esac
@@ -327,5 +358,6 @@ preflight
 case "$ACTION" in
     check) do_check ;;
     undo) do_undo ;;
+    update) do_update ;;
     deploy) do_deploy ;;
 esac

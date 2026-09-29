@@ -25,6 +25,7 @@ Notes on the current app structure:
 ./deploy.sh --no-launch  # deploy without quitting Claude; restart it yourself
 ./deploy.sh --check      # status: injection, catalog, integrity hash, entitlements
 ./deploy.sh --undo       # restore app.asar / en-US.json from backups
+./deploy.sh --update     # install the latest official release (built-in auto-update cannot), then deploy
 CLAUDE_APP=/path/to/Claude.app ./deploy.sh   # target a copy (testing)
 ```
 
@@ -67,10 +68,12 @@ server-driven, so they are recognised by content, not a selector.
 The asar integrity hash (`ElectronAsarIntegrity` in Info.plist) is the SHA256 of the asar **header** only; the
 script updates it and re-signs ad hoc with `data/entitlements.plist`. Wrong hash → crash on launch; missing
 entitlements → Cowork "Invalid installation".
-The outer bundle is then re-signed with an explicit designated requirement copied from the official build (Anthropic
-Team ID `Q6L2SF6YDW`, `OFFICIAL_DR` in deploy.sh). Squirrel validates a downloaded update against the running app's
-designated requirement; the default ad-hoc (cdhash) requirement rejects every official update ("did not pass
-validation"). An update replaces the translated app, so run `./deploy.sh` again afterwards.
+Claude's built-in updater cannot update a translated app: Squirrel only accepts an update that satisfies the running
+app's designated requirement, and the ad-hoc (cdhash) requirement rejects every official release. Declaring the official
+requirement instead does not work: the app then fails its own requirement, so macOS forgets keychain ("Claude Safe
+Storage") and privacy (TCC) grants on every launch, and ShipIt (still Anthropic-signed) cannot load the ad-hoc
+`Mantle.framework`. `./deploy.sh --update` replaces the updater: it reads the same release feed, verifies the SHA256
+and the Anthropic signature (Team ID `Q6L2SF6YDW`), replaces the app and deploys again.
 
 Backups: a clean (untranslated) `app.asar` / `en-US.json` found at deploy time always refreshes
 `app.asar.bak` / `en-US.json.bak`, so backups follow app updates.
@@ -78,6 +81,7 @@ Backups: a clean (untranslated) `app.asar` / `en-US.json` found at deploy time a
 ## Updating after a Claude Desktop release
 
 ```bash
+./deploy.sh --update     # from Terminal; or --no-launch, then restart Claude
 python3 lib/zhtw.py missing data/translations.json /Applications/Claude.app .work/in   # untranslated → batches
 # translate .work/in/bNNN.json → .work/out/bNNN.json (same keys), validate, then:
 python3 lib/zhtw.py merge data/translations.json .work/in .work/out
