@@ -41,7 +41,7 @@ deploy.sh               # Deploy / check / undo
 lib/zhtw.py             # All build steps (inject, patch-defaults, catalog, missing, merge, stats, asar helpers)
 lib/icu.py              # Minimal ICU MessageFormat parser/expander
 lib/inject.js           # Web UI runtime (MutationObserver); data is embedded at deploy time
-data/translations.json  # Master dictionary (EN → zh-TW, ~34k messages; covers Claude 2.9939.2 + cached claude.ai bundles)
+data/translations.json  # Master dictionary (EN → zh-TW, ~34k messages; covers Claude 2.9939.4 + cached claude.ai bundles)
 data/entitlements.plist # Entitlements for ad-hoc re-signing (virtualization is required by Cowork)
 .work/                  # (gitignored) translation batches while updating
 ```
