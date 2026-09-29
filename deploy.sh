@@ -110,9 +110,16 @@ launch_claude() {
     fi
 }
 
+# Designated requirement of the official Anthropic build. Squirrel only accepts an
+# update that satisfies the running app's designated requirement; an ad-hoc
+# signature's default (cdhash) requirement rejects every official update.
+OFFICIAL_DR='designated => identifier "com.anthropic.claudefordesktop" and anchor apple generic and certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and certificate leaf[subject.OU] = Q6L2SF6YDW'
+
 resign() {
     info "Re-signing with entitlements..."
     codesign --force --deep --sign - --entitlements "$ENTITLEMENTS" "$APP_PATH" 2>/dev/null
+    # Re-sign the outer bundle only, so nested helpers keep their own requirements
+    codesign --force --sign - --entitlements "$ENTITLEMENTS" -r="$OFFICIAL_DR" "$APP_PATH"
 }
 
 # ============================================================================
@@ -157,6 +164,12 @@ do_check() {
         log "Virtualization entitlement: PRESENT (Cowork should work)"
     else
         warn "Virtualization entitlement: MISSING (Cowork may show 'corrupted' error)"
+    fi
+
+    if codesign -d -r- "$APP_PATH" 2>&1 | grep -q "subject.OU\] = Q6L2SF6YDW"; then
+        log "Designated requirement: OFFICIAL (auto-update accepted)"
+    else
+        warn "Designated requirement: NOT OFFICIAL (auto-update will fail signature validation)"
     fi
 
     info "Translation dictionary: $(python3 -c "import json; print(len(json.load(open('$TRANSLATIONS'))))") entries"

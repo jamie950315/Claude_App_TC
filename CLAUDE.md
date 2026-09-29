@@ -67,6 +67,10 @@ server-driven, so they are recognised by content, not a selector.
 The asar integrity hash (`ElectronAsarIntegrity` in Info.plist) is the SHA256 of the asar **header** only; the
 script updates it and re-signs ad hoc with `data/entitlements.plist`. Wrong hash → crash on launch; missing
 entitlements → Cowork "Invalid installation".
+The outer bundle is then re-signed with an explicit designated requirement copied from the official build (Anthropic
+Team ID `Q6L2SF6YDW`, `OFFICIAL_DR` in deploy.sh). Squirrel validates a downloaded update against the running app's
+designated requirement; the default ad-hoc (cdhash) requirement rejects every official update ("did not pass
+validation"). An update replaces the translated app, so run `./deploy.sh` again afterwards.
 
 Backups: a clean (untranslated) `app.asar` / `en-US.json` found at deploy time always refreshes
 `app.asar.bak` / `en-US.json.bak`, so backups follow app updates.
