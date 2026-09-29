@@ -104,6 +104,16 @@ quit_claude() {
     fi
 }
 
+# Claude's built-in updater schedules ShipIt as a launchd job that replaces the whole app
+# bundle when Claude quits. A leftover job can fire while we modify the app and discard
+# our changes (it retries until it succeeds), so remove it before touching the bundle.
+cancel_pending_update() {
+    if is_installed_app && launchctl list com.anthropic.claudefordesktop.ShipIt &>/dev/null; then
+        info "Cancelling a pending install by Claude's built-in updater..."
+        launchctl remove com.anthropic.claudefordesktop.ShipIt
+    fi
+}
+
 launch_claude() {
     if is_installed_app && [ "$LAUNCH" = true ]; then
         info "Launching Claude..."
@@ -181,6 +191,7 @@ do_undo() {
     fi
 
     quit_claude
+    cancel_pending_update
     cp "$ASAR_BAK" "$ASAR_PATH"
     log "Restored app.asar from backup"
     if [ -f "$CATALOG_BAK" ]; then
@@ -223,6 +234,7 @@ do_update() {
     log "Verified Claude $version (SHA256 and Anthropic signature)"
 
     quit_claude
+    cancel_pending_update
     [ "$LAUNCH" = true ] || ! is_installed_app || warn "Claude is not restarted (--no-launch); quit it before using the new version"
     mv "$APP_PATH" "$WORK_DIR/Claude.app.old"
     mv "$new_app" "$APP_PATH"
@@ -240,6 +252,7 @@ do_deploy() {
     echo
 
     quit_claude
+    cancel_pending_update
 
     # Step 1: Extract asar
     info "Extracting app.asar..."

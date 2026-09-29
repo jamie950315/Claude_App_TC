@@ -74,6 +74,9 @@ requirement instead does not work: the app then fails its own requirement, so ma
 Storage") and privacy (TCC) grants on every launch, and ShipIt (still Anthropic-signed) cannot load the ad-hoc
 `Mantle.framework`. `./deploy.sh --update` replaces the updater: it reads the same release feed, verifies the SHA256
 and the Anthropic signature (Team ID `Q6L2SF6YDW`), replaces the app and deploys again.
+Every command that touches the installed app first removes a leftover ShipIt launchd job
+(`com.anthropic.claudefordesktop.ShipIt`, `cancel_pending_update`): it retries until it succeeds and would otherwise
+swap in its staged bundle mid-deploy, discarding the backups and translated files.
 
 Backups: a clean (untranslated) `app.asar` / `en-US.json` found at deploy time always refreshes
 `app.asar.bak` / `en-US.json.bak`, so backups follow app updates.
